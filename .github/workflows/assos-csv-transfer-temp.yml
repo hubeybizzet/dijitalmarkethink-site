@@ -1,0 +1,23 @@
+name: ASSOS CSV Transfer Temp
+on:
+  push:
+    paths:
+      - '.github/workflows/assos-csv-transfer-temp.yml'
+  workflow_dispatch:
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download generated ASSOS CSV
+        run: |
+          curl -fL --retry 5 --retry-delay 2 'https://n.uguu.se/uQODRnTn.gz' -o assos_shopify_full_20260930.csv.gz
+          gunzip assos_shopify_full_20260930.csv.gz
+          sha256sum assos_shopify_full_20260930.csv
+          test "$(sha256sum assos_shopify_full_20260930.csv | cut -d' ' -f1)" = "c3306dc1e03a30439d7b30b6659a6e544966185c3d44208a06c139973613aec5"
+      - name: Upload CSV artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: assos-shopify-csv
+          path: assos_shopify_full_20260930.csv
+          retention-days: 1
