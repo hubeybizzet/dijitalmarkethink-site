@@ -69,13 +69,14 @@ $phoneFmt = preg_replace('/^(\d{4})(\d{3})(\d{2})(\d{2})$/', '$1 $2 $3 $4', $pho
 $pdo = db();
 $pdo->beginTransaction();
 try {
-    $pdo->prepare('INSERT INTO orders(order_no,created_at,status,customer_name,phone,email,city,district,address,payment_method,note,items,subtotal,discount,shipping,cod_fee,total,ip,user_agent)
-                   VALUES(NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    $pdo->prepare('INSERT INTO orders(order_no,created_at,status,customer_name,phone,email,city,district,address,payment_method,note,items,subtotal,discount,shipping,cod_fee,total,ip,user_agent,attribution)
+                   VALUES(NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         ->execute([
             date('c'), 'yeni', $name, $phoneFmt, $email, $city, $district, $address, $payment, $note,
             json_encode($calc['lines'], JSON_UNESCAPED_UNICODE),
             $calc['subtotal'], $calc['discount'], $calc['shipping'], $calc['codFee'], $calc['total'],
             $ip, mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 250),
+            json_encode(meta_attribution(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
     $id = (int)$pdo->lastInsertId();
     $orderNo = 'AE-' . date('ymd') . '-' . str_pad((string)$id, 4, '0', STR_PAD_LEFT);
@@ -88,8 +89,44 @@ try {
 }
 
 $pm = payment_methods()[$payment]['label'];
+$bank = null;
+if ($payment === 'havale') {
+    $bank = ['bank' => setting('bank_name'), 'holder' => setting('account_holder'), 'iban' => setting('iban')];
+}
+$metaEventId = 'purchase.' . $orderNo;
 
-// E-posta bildirimi (panelde bildirim e-postası girildiyse)
+// 1) Müşteriye hemen yanıt ver
+$payload = json_encode([
+    'ok' => true,
+    'order_no' => $orderNo,
+    'total' => $calc['total'],
+    'lines' => array_map(fn($l) => ['id' => $l['id'], 'name' => $l['name'], 'qty' => $l['qty'], 'price' => $l['price']], $calc['lines']),
+    'payment_label' => $pm,
+    'bank' => $bank,
+    'meta_event_id' => $metaEventId,
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+header('Content-Length: ' . strlen($payload));
+header('Connection: close');
+echo $payload;
+finish_response();
+
+// 2) Arka planda: Meta Dönüşümler API'sine Purchase olayı (tarayıcıdaki Pixel olayıyla aynı event_id)
+if (capi_enabled()) {
+    $custom = meta_custom_data(array_map(fn($l) => ['id' => $l['id'], 'qty' => $l['qty']], $calc['lines']));
+    $custom['value'] = $calc['total'];
+    $custom['order_id'] = $orderNo;
+    $custom['payment_method'] = $payment;
+    $url = (string)($_SERVER['HTTP_REFERER'] ?? '');
+    if (parse_url($url, PHP_URL_HOST) !== parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST)) { $url = base_url() . '/'; }
+    $event = meta_event('Purchase', $metaEventId, $url,
+        meta_user_data(['email' => $email, 'phone' => $phoneRaw, 'name' => $name, 'city' => $city]), $custom);
+    capi_dispatch($event);
+    capi_flush(20);
+}
+
+// 3) E-posta bildirimi (panelde bildirim e-postası girildiyse)
 $notify = setting('notify_email');
 if ($notify !== '' && function_exists('mail')) {
     $body = "Yeni sipariş: $orderNo\n\n";
@@ -101,17 +138,3 @@ if ($notify !== '' && function_exists('mail')) {
     $headers = "From: Aksar Ege <siparis@$host>\r\nContent-Type: text/plain; charset=UTF-8\r\n";
     @mail($notify, '=?UTF-8?B?' . base64_encode("🫒 Yeni Sipariş $orderNo - " . money($calc['total'])) . '?=', $body, $headers);
 }
-
-$bank = null;
-if ($payment === 'havale') {
-    $bank = ['bank' => setting('bank_name'), 'holder' => setting('account_holder'), 'iban' => setting('iban')];
-}
-
-json_out([
-    'ok' => true,
-    'order_no' => $orderNo,
-    'total' => $calc['total'],
-    'lines' => array_map(fn($l) => ['id' => $l['id'], 'name' => $l['name'], 'qty' => $l['qty']], $calc['lines']),
-    'payment_label' => $pm,
-    'bank' => $bank,
-]);

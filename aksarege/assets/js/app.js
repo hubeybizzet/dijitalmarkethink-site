@@ -18,18 +18,60 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  function track(ev, data) {
-    try { if (window.fbq) window.fbq('track', ev, data || {}); } catch (e) {}
+  /* ---------------- Meta Pixel + Dönüşümler API'si ----------------
+     Her olay için tek bir event_id üretilir: Pixel'e (tarayıcı) ve api/event.php üzerinden
+     Meta Dönüşümler API'sine (sunucu) aynı kimlikle gider; Meta ikisini tekilleştirir. */
+  function eventId(ev) { return ev.toLowerCase() + '.' + Date.now().toString(36) + '.' + Math.random().toString(36).slice(2, 10); }
+  function customData(items) {
+    var contents = [], value = 0, num = 0;
+    (items || []).forEach(function (it) {
+      var p = byId[it.id]; if (!p) return;
+      var q = Math.max(1, Math.min(99, it.qty || 1));
+      contents.push({ id: String(p.id), quantity: q, item_price: p.price });
+      value += p.price * q; num += q;
+    });
+    if (!contents.length) return {};
+    var cd = { currency: 'TRY', value: Math.round(value * 100) / 100, content_type: 'product', content_ids: contents.map(function (c) { return c.id; }), contents: contents, num_items: num };
+    if (contents.length === 1) cd.content_name = byId[contents[0].id].name;
+    return cd;
+  }
+  function beacon(payload) {
+    if (!S.capi) return;
+    var body = JSON.stringify(payload);
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon('api/event.php', new Blob([body], { type: 'application/json' }))) return;
+    } catch (e) {}
+    try { fetch('api/event.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true, credentials: 'same-origin' }); } catch (e) {}
+  }
+  /**
+   * @param {string} ev   Meta standart olay adı
+   * @param {Array}  items [{id, qty}]
+   * @param {Object} extra { method, payment, data, eventId, serverSide:false }
+   */
+  function track(ev, items, extra) {
+    extra = extra || {};
+    var id = extra.eventId || eventId(ev);
+    var data = extra.data || customData(items);
+    if (extra.method) data.contact_method = extra.method;
+    if (extra.payment) data.payment_method = extra.payment;
+    try { if (window.fbq) window.fbq('track', ev, data, { eventID: id }); } catch (e) {}
+    if (extra.serverSide !== false) {
+      beacon({ event_name: ev, event_id: id, url: location.href, items: (items || []).map(function (i) { return { id: +i.id, qty: i.qty || 1 }; }), method: extra.method, payment: extra.payment });
+    }
     try {
       if (window.gtag) {
-        var map = { AddToCart: 'add_to_cart', InitiateCheckout: 'begin_checkout', Purchase: 'purchase', Contact: 'contact', ViewContent: 'view_item' };
-        window.gtag('event', map[ev] || ev, data || {});
+        var map = { AddToCart: 'add_to_cart', InitiateCheckout: 'begin_checkout', Purchase: 'purchase', Contact: 'contact', ViewContent: 'view_item', AddPaymentInfo: 'add_payment_info' };
+        window.gtag('event', map[ev] || ev, { currency: 'TRY', value: data.value, items: (data.contents || []).map(function (c) { return { item_id: c.id, item_name: (byId[c.id] || {}).name, price: c.item_price, quantity: c.quantity }; }), transaction_id: data.order_id });
       }
     } catch (e) {}
   }
+  function cartItems() { return Object.keys(cart).map(function (k) { return { id: k, qty: cart[k] }; }); }
+  // Sayfa görüntüleme: Pixel'in head'de gönderdiği PageView ile aynı event_id
+  if (window.AE_PV) beacon({ event_name: 'PageView', event_id: window.AE_PV, url: location.href, items: [] });
 
   /* ---------------- Sepet ---------------- */
   var cart = load();
+  var startedCheckout = false;
   function load() {
     try {
       var c = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
@@ -184,7 +226,7 @@
       (p.pairing ? '<div class="pm__pair"><strong>Yanına yakışanlar:</strong> ' + esc(p.pairing) + '</div>' : '') +
       '<div class="price">' + price + '</div><div class="pm__buy">' + buy + '</div></div>';
     openModal('productModal');
-    track('ViewContent', { content_name: p.name, content_ids: [String(p.id)], content_type: 'product', value: p.price, currency: 'TRY' });
+    track('ViewContent', [{ id: p.id, qty: 1 }]);
   }
 
   function openLegal(key) {
@@ -199,13 +241,13 @@
     var t = e.target;
     var el;
 
-    if ((el = t.closest('[data-contact]'))) { e.preventDefault(); openModal('contactModal'); track('Contact'); return; }
+    if ((el = t.closest('[data-contact]'))) { e.preventDefault(); openModal('contactModal'); return; }
     if ((el = t.closest('[data-close]'))) { closeModal(el.closest('.modal')); return; }
     if ((el = t.closest('[data-open-cart]'))) { openCart(); return; }
     if ((el = t.closest('[data-close-cart]'))) { closeCart(); return; }
     if ((el = t.closest('[data-goto-checkout]'))) {
       closeCart();
-      if (count()) track('InitiateCheckout', { value: subtotal(), currency: 'TRY', num_items: count() });
+      if (count() && !startedCheckout) { startedCheckout = true; track('InitiateCheckout', cartItems()); }
       return;
     }
     if ((el = t.closest('[data-quickview]'))) { openProduct(el.getAttribute('data-quickview')); return; }
@@ -233,7 +275,7 @@
       var inModal = el.closest('.modal');
       if (inModal) closeModal(inModal);
       toast('<img src="' + esc(p.image) + '" alt=""><span><b>' + esc(p.name) + '</b> sepete eklendi' + (q > 1 ? ' (' + q + ' adet)' : '') + '</span><button type="button" data-open-cart>Sepete Git</button>');
-      track('AddToCart', { content_name: p.name, content_ids: [String(p.id)], content_type: 'product', value: p.price * q, currency: 'TRY' });
+      track('AddToCart', [{ id: p.id, qty: q }]);
       return;
     }
     if ((el = t.closest('[data-rm]'))) { setQty(el.getAttribute('data-rm'), 0); return; }
@@ -242,8 +284,8 @@
       setQty(lid, (cart[lid] || 0) + parseInt(el.getAttribute('data-d'), 10));
       return;
     }
-    if ((el = t.closest('a[data-track="wa"]'))) { track('Contact', { method: 'whatsapp' }); }
-    if ((el = t.closest('a[data-track="call"]'))) { track('Contact', { method: 'phone' }); }
+    if ((el = t.closest('a[data-track="wa"]'))) { track('Contact', [], { method: 'whatsapp' }); }
+    if ((el = t.closest('a[data-track="call"]'))) { track('Contact', [], { method: 'phone' }); }
 
     // Mobil menü linkleri
     if (t.closest('.nav a')) toggleNav(false);
@@ -328,9 +370,12 @@
       f.addEventListener('input', function () { var w = f.closest('.field, .consent'); if (w) w.classList.remove('invalid'); $('[data-form-error]').hidden = true; });
       f.addEventListener('change', function () { var w = f.closest('.field, .consent'); if (w) w.classList.remove('invalid'); $('[data-form-error]').hidden = true; });
     });
-    var startedCheckout = false;
     form.addEventListener('focusin', function () {
-      if (!startedCheckout && count()) { startedCheckout = true; track('InitiateCheckout', { value: subtotal(), currency: 'TRY', num_items: count() }); }
+      if (!startedCheckout && count()) { startedCheckout = true; track('InitiateCheckout', cartItems()); }
+    });
+    var paymentTracked = false;
+    form.addEventListener('change', function (e) {
+      if (e.target.name === 'payment' && !paymentTracked && count()) { paymentTracked = true; track('AddPaymentInfo', cartItems(), { payment: e.target.value }); }
     });
 
     form.addEventListener('submit', function (e) {
@@ -399,7 +444,22 @@
     var lines = res.lines.map(function (l) { return '• ' + l.qty + ' x ' + l.name; }).join('\n');
     var msg = 'Merhaba, web sitenizden sipariş verdim.\nSipariş No: ' + res.order_no + '\n' + lines + '\nToplam: ' + money(res.total) + '\nÖdeme: ' + res.payment_label + '\nAd Soyad: ' + data.name;
     $('[data-ok-wa]').href = 'https://wa.me/' + S.whatsapp + '?text=' + encodeURIComponent(msg);
-    track('Purchase', { value: res.total, currency: 'TRY', content_ids: res.lines.map(function (l) { return String(l.id); }), content_type: 'product', num_items: res.lines.reduce(function (a, l) { return a + l.qty; }, 0) });
+    if (res.meta_event_id) {
+      // Gelişmiş eşleştirme: Pixel, müşteri bilgilerini tarayıcıda SHA-256 ile şifreleyerek gönderir
+      if (window.fbq && S.pixel_id) {
+        var norm = function (v) { return String(v || '').replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase().replace(/[çğıöşüâîû]/g, function (c) { return { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'â': 'a', 'î': 'i', 'û': 'u' }[c]; }).replace(/[^a-z]/g, ''); };
+        var parts = data.name.trim().split(/\s+/);
+        var am = { ph: '9' + data.phone.replace(/\D/g, ''), fn: norm(parts[0]), ct: norm(data.city), country: 'tr' };
+        if (parts.length > 1) am.ln = norm(parts[parts.length - 1]);
+        if (data.email) am.em = data.email;
+        if (S.vid) am.external_id = S.vid;
+        try { window.fbq('init', S.pixel_id, am); } catch (e) {}
+      }
+      // Sunucu Purchase olayını zaten Dönüşümler API'sine gönderdi; Pixel aynı event_id ile gönderir
+      var pd = customData(res.lines);
+      pd.value = res.total; pd.order_id = res.order_no;
+      track('Purchase', res.lines, { eventId: res.meta_event_id, data: pd, serverSide: false });
+    }
     cart = {}; save();
     form.reset();
     var first = form.querySelector('input[name="payment"]'); if (first) first.checked = true;

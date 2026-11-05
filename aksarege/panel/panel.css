@@ -191,3 +191,9 @@ textarea { resize: vertical; }
   .box { box-shadow: none; border: 1px solid #ccc; }
   .grid2 { grid-template-columns: 1fr 1fr; }
 }
+
+.stat--off strong { color: #9a9a8a; }
+.stat--warn { border-color: #f1d58a; background: var(--gold-100); }
+.badge--meta { margin-left: .35rem; font-size: .7rem; vertical-align: 1px; }
+.steps-list { padding-left: 1.2rem; margin: 0 0 1rem; display: grid; gap: .55rem; font-size: .92rem; }
+.form__acts form { margin: 0; }

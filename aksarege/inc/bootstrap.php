@@ -106,9 +106,34 @@ function migrate(PDO $pdo): void
         ip         TEXT,
         created_at INTEGER
     );
+    CREATE TABLE IF NOT EXISTS capi_queue (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_json TEXT,
+        attempts   INTEGER DEFAULT 0,
+        last_error TEXT,
+        created_at TEXT,
+        next_try   INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS capi_log (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT,
+        event_name TEXT,
+        event_id   TEXT,
+        status     TEXT,
+        http_code  INTEGER,
+        response   TEXT,
+        ip         TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_capi_log_ip ON capi_log(ip, created_at);
     CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
     CREATE INDEX IF NOT EXISTS idx_orders_status  ON orders(status);
     ");
+    // Sonradan eklenen sütunlar (mevcut kurulumlar için)
+    $cols = array_column($pdo->query('PRAGMA table_info(orders)')->fetchAll(), 'name');
+    if (!in_array('attribution', $cols, true)) { $pdo->exec("ALTER TABLE orders ADD COLUMN attribution TEXT DEFAULT ''"); }
+    // Yeni ayarların varsayılanlarını ekle
+    $ins = $pdo->prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)');
+    foreach (['meta_capi_token' => '', 'meta_test_code' => '', 'meta_api_version' => 'v26.0'] as $k => $v) { $ins->execute([$k, $v]); }
 }
 
 function default_settings(): array
@@ -136,6 +161,9 @@ function default_settings(): array
         'free_shipping_min' => '0',
         'min_order'         => '0',
         'meta_pixel_id'     => '',
+        'meta_capi_token'   => '',
+        'meta_test_code'    => '',
+        'meta_api_version'  => 'v26.0',
         'ga4_id'            => '',
         'site_url'          => '',
         'hero_image'        => '',
@@ -428,7 +456,7 @@ function legal_text(string $key): string
     $phone = setting('phone');
     switch ($key) {
         case 'kvkk_text':
-            return "$c olarak, 6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında veri sorumlusu sıfatıyla; sipariş formunda paylaştığınız ad-soyad, telefon, e-posta ve adres bilgilerinizi yalnızca siparişinizin alınması, onaylanması, kargolanması, faturalandırılması ve sizinle iletişim kurulması amacıyla işlemekteyiz.\n\nBilgileriniz, siparişin teslimi için anlaşmalı kargo firması dışında üçüncü kişilerle paylaşılmaz. KVKK'nın 11. maddesi kapsamındaki haklarınızı kullanmak için $phone numarasından bize ulaşabilirsiniz.";
+            return "$c olarak, 6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında veri sorumlusu sıfatıyla; sipariş formunda paylaştığınız ad-soyad, telefon, e-posta ve adres bilgilerinizi yalnızca siparişinizin alınması, onaylanması, kargolanması, faturalandırılması ve sizinle iletişim kurulması amacıyla işlemekteyiz.\n\nBilgileriniz, siparişin teslimi için anlaşmalı kargo firmasıyla paylaşılır.\n\nSitemizde reklam performansını ölçmek amacıyla Meta Platforms Ireland Ltd.'ye ait Meta Pixel ve Dönüşümler API'si kullanılmaktadır. Bu kapsamda sitede gerçekleştirdiğiniz işlemler (sayfa görüntüleme, sepete ekleme, sipariş gibi), tarayıcı ve cihaz bilgileriniz, IP adresiniz ve çerez kimlikleri ile sipariş verdiğinizde ad-soyad, telefon, e-posta ve il bilgileriniz geri döndürülemez şekilde şifrelenerek (SHA-256) Meta'ya aktarılabilir. Bu aktarım yurt dışına veri aktarımı niteliğindedir. KVKK'nın 11. maddesi kapsamındaki haklarınızı kullanmak için $phone numarasından bize ulaşabilirsiniz.";
         case 'distance_contract':
             return "MESAFELİ SATIŞ SÖZLEŞMESİ VE ÖN BİLGİLENDİRME\n\nSatıcı: $c — $addr — Tel: $phone\n\n1. Konu: İşbu sözleşme, alıcının internet sitesi üzerinden sipariş verdiği ürünlerin satışı ve teslimine ilişkin tarafların hak ve yükümlülüklerini 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümlerine göre düzenler.\n\n2. Ürün, fiyat ve ödeme: Ürünlerin cinsi, adedi, KDV dahil satış fiyatı ve ödeme şekli sipariş özetinde belirtildiği gibidir. Ödeme kapıda nakit, kapıda kredi kartı veya havale/EFT ile yapılabilir.\n\n3. Teslimat: Ürünler, sipariş onayından sonra en geç 30 gün içinde (genellikle çok daha kısa sürede) alıcının bildirdiği adrese kargo ile teslim edilir.\n\n4. Cayma hakkı: Mesafeli Sözleşmeler Yönetmeliği'nin 15. maddesi uyarınca, çabuk bozulabilen veya son kullanma tarihi geçebilecek gıda ürünlerinde ve ambalajı açılmış ürünlerde cayma hakkı kullanılamaz. Ayıplı mal teslimi halinde 6502 sayılı Kanun'dan doğan yasal haklarınız saklıdır. Kargo kaynaklı hasarlarda talepte bulunabilmek için, teslimat sırasında kargo görevlisine hasar tespit tutanağı tutturulması gerekir.\n\n5. Uyuşmazlık: Uyuşmazlıklarda Tüketici Hakem Heyetleri ve Tüketici Mahkemeleri yetkilidir.";
         case 'return_policy':
@@ -436,3 +464,5 @@ function legal_text(string $key): string
     }
     return '';
 }
+
+require_once __DIR__ . '/meta.php';

@@ -244,8 +244,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 
     if ($a === 'settings_save') {
-        $text = ['brand_name', 'company_name', 'slogan', 'phone', 'whatsapp', 'instagram', 'email', 'notify_email', 'address', 'announcement', 'bank_name', 'account_holder', 'iban', 'meta_pixel_id', 'ga4_id', 'site_url', 'seo_title', 'seo_description', 'distance_contract', 'kvkk_text', 'return_policy'];
-        $_POST['meta_pixel_id'] = preg_replace('/\D/', '', (string)($_POST['meta_pixel_id'] ?? ''));
+        $text = ['brand_name', 'company_name', 'slogan', 'phone', 'whatsapp', 'instagram', 'email', 'notify_email', 'address', 'announcement', 'bank_name', 'account_holder', 'iban', 'ga4_id', 'site_url', 'seo_title', 'seo_description', 'distance_contract', 'kvkk_text', 'return_policy'];
         $_POST['ga4_id'] = preg_replace('/[^A-Z0-9-]/', '', strtoupper((string)($_POST['ga4_id'] ?? '')));
         $_POST['iban'] = strtoupper(trim(preg_replace('/\s+/', ' ', (string)($_POST['iban'] ?? ''))));
         $_POST['whatsapp'] = preg_replace('/\D/', '', (string)($_POST['whatsapp'] ?? ''));
@@ -259,6 +258,31 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             else { flash('Görsel yüklenemedi (JPG, PNG veya WebP, en fazla 12 MB).', 'err'); go('p=settings'); }
         }
         flash('Ayarlar kaydedildi.'); go('p=settings');
+    }
+    if ($a === 'meta_save') {
+        save_setting('meta_pixel_id', preg_replace('/\D/', '', (string)($_POST['meta_pixel_id'] ?? '')));
+        save_setting('meta_test_code', strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($_POST['meta_test_code'] ?? ''))));
+        $ver = trim((string)($_POST['meta_api_version'] ?? ''));
+        save_setting('meta_api_version', preg_match('/^v\d{2}\.\d$/', $ver) ? $ver : 'v26.0');
+        $tok = trim((string)($_POST['meta_capi_token'] ?? ''));
+        if (!empty($_POST['meta_token_remove'])) { save_setting('meta_capi_token', ''); }
+        elseif ($tok !== '') { save_setting('meta_capi_token', preg_replace('/\s+/', '', $tok)); }
+        flash('Meta ayarları kaydedildi.' . (capi_enabled() ? ' Bağlantıyı “Test olayı gönder” ile doğrulayın.' : ''));
+        go('p=meta');
+    }
+    if ($a === 'meta_test') {
+        if (!capi_enabled()) { flash('Önce Veri Seti (Pixel) ID ve erişim anahtarını girin.', 'err'); go('p=meta'); }
+        $ev = meta_event('PageView', 'panel-test.' . bin2hex(random_bytes(6)), base_url() . '/', meta_user_data());
+        [$ok, $code, $resp] = capi_post([$ev]);
+        capi_log($ev, $ok ? 'ok (test)' : 'hata (test)', $code, $resp);
+        $msg = $ok
+            ? 'Bağlantı başarılı! Meta yanıtı: ' . $resp . (setting('meta_test_code') ? ' — Olay Yöneticisi › Test Olayları sekmesinde görünecektir.' : '')
+            : 'Bağlantı başarısız (HTTP ' . $code . '): ' . $resp;
+        flash($msg, $ok ? 'ok' : 'err'); go('p=meta');
+    }
+    if ($a === 'meta_flush') {
+        $r = capi_flush(500, true);
+        flash($r['sent'] . ' olay gönderildi, kuyrukta ' . $r['left'] . ' olay kaldı.', $r['left'] ? 'warn' : 'ok'); go('p=meta');
     }
     if ($a === 'password_change') {
         if (!password_verify((string)$_POST['current'], setting('admin_password'))) { flash('Mevcut şifre hatalı.', 'err'); go('p=settings'); }
@@ -299,8 +323,16 @@ function badge(string $status): string
     $st = order_statuses()[$status] ?? [$status, '#666'];
     return '<span class="badge" style="--c:' . $st[1] . '">' . e($st[0]) . '</span>';
 }
+function order_source_label(array $att, bool $compact = false): string
+{
+    $src = strtolower((string)($att['utm_source'] ?? ''));
+    $meta = !empty($att['fbclid']) || preg_match('/facebook|instagram|^fb$|^ig$|meta/', $src);
+    if ($meta) { return '<span class="badge badge--meta" style="--c:#1d4ed8">Meta reklam</span>'; }
+    if ($src !== '') { return '<span class="badge" style="--c:#7c3aed">' . e($att['utm_source']) . '</span>'; }
+    return $compact ? '' : '<small>Doğrudan / organik</small>';
+}
 function wa_link(string $phone, string $text): string { return 'https://wa.me/' . phone_digits($phone) . '?text=' . rawurlencode($text); }
-$nav = ['dashboard' => ['Özet', 'M3 12 12 3l9 9M5 10v10h14V10'], 'orders' => ['Siparişler', 'M6 7h12l-1 13H7zM9 7V5a3 3 0 0 1 6 0v2'], 'products' => ['Ürünler & Fiyatlar', 'M7 3h10v4H7zM6 7h12v14H6zM6 12h12'], 'reviews' => ['Yorumlar', 'M4 5h16v11H9l-5 4z'], 'settings' => ['Ayarlar', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z']];
+$nav = ['dashboard' => ['Özet', 'M3 12 12 3l9 9M5 10v10h14V10'], 'orders' => ['Siparişler', 'M6 7h12l-1 13H7zM9 7V5a3 3 0 0 1 6 0v2'], 'products' => ['Ürünler & Fiyatlar', 'M7 3h10v4H7zM6 7h12v14H6zM6 12h12'], 'reviews' => ['Yorumlar', 'M4 5h16v11H9l-5 4z'], 'meta' => ['Meta Reklam', 'M3 17l6-6 4 4 8-8M15 7h6v6'], 'settings' => ['Ayarlar', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z']];
 $active = in_array($p, ['order'], true) ? 'orders' : (in_array($p, ['product'], true) ? 'products' : $p);
 ?>
 <!DOCTYPE html>
@@ -386,7 +418,7 @@ $active = in_array($p, ['order'], true) ? 'orders' : (in_array($p, ['product'], 
         <tr>
           <td><a href="?p=order&id=<?= $o['id'] ?>"><strong><?= e($o['order_no']) ?></strong></a></td>
           <td><?= date('d.m.Y', strtotime($o['created_at'])) ?><small><?= date('H:i', strtotime($o['created_at'])) ?></small></td>
-          <td><?= e($o['customer_name']) ?><small><?= e($o['phone']) ?> · <?= e($o['city']) ?></small></td>
+          <td><?= e($o['customer_name']) ?><?= order_source_label(json_decode((string)($o['attribution'] ?? ''), true) ?: [], true) ?><small><?= e($o['phone']) ?> · <?= e($o['city']) ?></small></td>
           <td class="items"><?= e(implode(', ', array_map(fn($l) => $l['qty'] . '× ' . $l['name'], $items))) ?><?php if ($o['note']): ?><small class="note">📝 <?= e(mb_strimwidth($o['note'], 0, 60, '…')) ?></small><?php endif; ?></td>
           <td><strong><?= money((float)$o['total']) ?></strong></td>
           <td><?= e($payLabels[$o['payment_method']] ?? '') ?></td>
@@ -414,6 +446,8 @@ $active = in_array($p, ['order'], true) ? 'orders' : (in_array($p, ['product'], 
         <?php if ($o['email']): ?><dt>E-posta</dt><dd><a href="mailto:<?= e($o['email']) ?>"><?= e($o['email']) ?></a></dd><?php endif; ?>
         <dt>Adres</dt><dd><?= e($o['address']) ?><br><strong><?= e($o['district']) ?> / <?= e($o['city']) ?></strong></dd>
         <dt>Ödeme</dt><dd><strong><?= e($payLabels[$o['payment_method']] ?? $o['payment_method']) ?></strong></dd>
+        <?php $att = json_decode((string)($o['attribution'] ?? ''), true) ?: []; ?>
+        <dt>Kaynak</dt><dd><?= order_source_label($att) ?><?php if (!empty($att['utm_campaign'])): ?><br><small>Kampanya: <?= e($att['utm_campaign']) ?><?= !empty($att['utm_content']) ? ' · Reklam: ' . e($att['utm_content']) : '' ?></small><?php endif; ?></dd>
       </dl>
       <?php if ($o['note']): ?><div class="cnote"><strong>📝 Müşteri notu</strong><p><?= nl2br(e($o['note'])) ?></p></div><?php endif; ?>
     </section>
@@ -524,6 +558,74 @@ $active = in_array($p, ['order'], true) ? 'orders' : (in_array($p, ['product'], 
   <form method="post" class="danger-zone" onsubmit="return confirm('Bu ürün kalıcı olarak silinsin mi? (Gizlemek için “Sitede göster” işaretini kaldırmanız yeterli.)')"><?= csrf_field() ?><input type="hidden" name="action" value="product_delete"><input type="hidden" name="id" value="<?= (int)$pr['id'] ?>"><button class="btn btn--danger btn--sm">Ürünü sil</button></form>
   <?php endif; ?>
 
+<?php elseif ($p === 'meta'):
+    $s = settings(true);
+    $queue = (int)db()->query('SELECT COUNT(*) FROM capi_queue')->fetchColumn();
+    $stats = db()->prepare("SELECT event_name, SUM(status LIKE 'ok%') ok, SUM(status NOT LIKE 'ok%') bad FROM capi_log WHERE created_at > ? GROUP BY event_name ORDER BY ok DESC");
+    $stats->execute([date('c', time() - 86400)]); $stats = $stats->fetchAll();
+    $logs = db()->query('SELECT * FROM capi_log ORDER BY id DESC LIMIT 40')->fetchAll();
+    $lastErr = db()->query("SELECT last_error FROM capi_queue ORDER BY id DESC LIMIT 1")->fetchColumn();
+    $tok = $s['meta_capi_token'];
+?>
+  <header class="head"><h1>Meta Reklam — Pixel & Dönüşümler API'si</h1><p>Reklamlardan gelen hiçbir dönüşüm kaçmasın diye olaylar hem tarayıcıdan (Pixel) hem sunucudan (Dönüşümler API'si) aynı olay kimliğiyle gönderilir; Meta bunları tekilleştirir.</p></header>
+  <div class="stats">
+    <div class="stat<?= meta_pixel_id() ? '' : ' stat--off' ?>"><small>Veri seti (Pixel)</small><strong><?= meta_pixel_id() ? '✓ Bağlı' : '— Yok' ?></strong><span><?= e(meta_pixel_id() ?: 'ID girilmedi') ?></span></div>
+    <div class="stat<?= capi_enabled() ? '' : ' stat--off' ?>"><small>Dönüşümler API'si</small><strong><?= capi_enabled() ? '✓ Aktif' : '— Kapalı' ?></strong><span><?= $tok ? 'Anahtar: ••••' . e(substr($tok, -6)) : 'Erişim anahtarı yok' ?></span></div>
+    <div class="stat"><small>Son 24 saatte gönderilen</small><strong><?= array_sum(array_column($stats, 'ok')) ?></strong><span><?= array_sum(array_column($stats, 'bad')) ?> başarısız deneme</span></div>
+    <div class="stat<?= $queue ? ' stat--warn' : '' ?>"><small>Yeniden denenecek (kuyruk)</small><strong><?= $queue ?></strong><span><?= $queue ? 'Otomatik tekrar deneniyor' : 'Bekleyen olay yok' ?></span></div>
+  </div>
+  <?php if ($s['meta_test_code']): ?><div class="alert alert--warn"><strong>Test kodu aktif (<?= e($s['meta_test_code']) ?>).</strong> Sunucu olayları şu an Olay Yöneticisi'nin “Test Olayları” sekmesine gidiyor. Testi bitirince test kodunu silip kaydedin; aksi halde bu olaylar reklam optimizasyonunda sayılmaz.</div><?php endif; ?>
+  <?php if ($queue && $lastErr): ?><div class="alert alert--err">Son hata: <?= e(mb_strimwidth((string)$lastErr, 0, 300, '…')) ?></div><?php endif; ?>
+  <div class="grid2">
+    <section class="box">
+      <h2>Bağlantı ayarları</h2>
+      <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="meta_save">
+        <label>Veri Seti (Pixel) ID<input name="meta_pixel_id" value="<?= e($s['meta_pixel_id']) ?>" placeholder="123456789012345" inputmode="numeric"></label>
+        <label>Dönüşümler API'si erişim anahtarı <small><?= $tok ? '(kayıtlı — değiştirmek için yenisini yapıştırın)' : '' ?></small><input name="meta_capi_token" type="password" autocomplete="off" placeholder="<?= $tok ? '••••••••' . e(substr($tok, -6)) : 'EAAG…' ?>"></label>
+        <?php if ($tok): ?><label class="check"><input type="checkbox" name="meta_token_remove" value="1"> Kayıtlı anahtarı sil</label><?php endif; ?>
+        <div class="row3">
+          <label>Test olay kodu <small>(yalnızca test sırasında)</small><input name="meta_test_code" value="<?= e($s['meta_test_code']) ?>" placeholder="TEST12345"></label>
+          <label>Graph API sürümü<input name="meta_api_version" value="<?= e($s['meta_api_version'] ?: 'v26.0') ?>" placeholder="v26.0"></label>
+        </div>
+        <div class="form__acts"><button class="btn btn--primary">Kaydet</button></div>
+      </form>
+      <div class="form__acts" style="margin-top:1rem">
+        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="meta_test"><button class="btn">⚡ Test olayı gönder</button></form>
+        <?php if ($queue): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="meta_flush"><button class="btn">↻ Kuyruğu şimdi gönder</button></form><?php endif; ?>
+      </div>
+    </section>
+    <section class="box">
+      <h2>Kurulum adımları</h2>
+      <ol class="steps-list">
+        <li><strong>Meta Olay Yöneticisi</strong>'ni açın (business.facebook.com › Olay Yöneticisi) ve web sitenizin <strong>veri setini</strong> seçin. Veri setiniz yoksa “Veri kaynaklarını bağla › Web” ile oluşturun.</li>
+        <li>Veri seti adının altındaki <strong>ID</strong>'yi kopyalayıp “Veri Seti (Pixel) ID” alanına yapıştırın.</li>
+        <li><strong>Ayarlar</strong> sekmesinde “Dönüşümler API'si” bölümünden <strong>“Erişim anahtarı oluştur”</strong>a tıklayın, anahtarı kopyalayıp buraya yapıştırın ve kaydedin.</li>
+        <li><strong>Test Olayları</strong> sekmesindeki test kodunu “Test olay kodu” alanına girin, kaydedin ve <strong>Test olayı gönder</strong>'e basın. Siteyi gezip sepete ürün ekleyin; olaylar hem “Tarayıcı” hem “Sunucu” olarak görünmeli ve “Tekilleştirildi” yazmalı.</li>
+        <li>Test bitince <strong>test kodunu silip kaydedin</strong>.</li>
+        <li>Olay Yöneticisi › Ayarlar'da alan adınızı <strong>doğrulayın</strong> ve Toplu Olay Ölçümü (AEM) için <strong>Purchase</strong> olayını en üst önceliğe alın.</li>
+      </ol>
+      <p class="hint">Gönderilen olaylar: PageView, ViewContent, AddToCart, InitiateCheckout, AddPaymentInfo, Contact (arama/WhatsApp tıklaması) ve Purchase. Purchase olayında müşteri adı, telefonu, e-postası ve ili SHA-256 ile şifrelenerek gönderilir (Gelişmiş Eşleştirme).</p>
+    </section>
+  </div>
+  <section class="box">
+    <div class="box__head"><h2>Son 24 saat — olay bazında</h2></div>
+    <?php if (!$stats): ?><p class="empty">Henüz sunucu olayı yok. Dönüşümler API'si etkinleştirildikten sonra olaylar burada görünür.</p><?php else: ?>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Olay</th><th>Başarılı</th><th>Başarısız deneme</th></tr></thead><tbody>
+      <?php foreach ($stats as $r): ?><tr><td><strong><?= e($r['event_name']) ?></strong></td><td><?= (int)$r['ok'] ?></td><td><?= (int)$r['bad'] ?></td></tr><?php endforeach; ?>
+    </tbody></table></div><?php endif; ?>
+  </section>
+  <section class="box">
+    <div class="box__head"><h2>Son gönderimler</h2></div>
+    <?php if (!$logs): ?><p class="empty">Kayıt yok.</p><?php else: ?>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Zaman</th><th>Olay</th><th>Olay kimliği</th><th>Durum</th><th>Meta yanıtı</th></tr></thead><tbody>
+      <?php foreach ($logs as $l): $okRow = str_starts_with($l['status'], 'ok'); ?>
+      <tr><td><?= date('d.m H:i:s', strtotime($l['created_at'])) ?></td><td><strong><?= e($l['event_name']) ?></strong></td><td><small><?= e($l['event_id']) ?></small></td>
+        <td><span class="badge" style="--c:<?= $okRow ? '#15803d' : '#b4321f' ?>"><?= e($l['status']) ?><?= $l['http_code'] ? ' · ' . (int)$l['http_code'] : '' ?></span></td>
+        <td><small><?= e(mb_strimwidth((string)$l['response'], 0, 140, '…')) ?></small></td></tr>
+      <?php endforeach; ?>
+    </tbody></table></div><?php endif; ?>
+  </section>
+
 <?php elseif ($p === 'reviews'): $rows = db()->query('SELECT * FROM reviews ORDER BY id DESC')->fetchAll(); $edit = null;
     if (isset($_GET['id'])) { foreach ($rows as $r) { if ((int)$r['id'] === (int)$_GET['id']) { $edit = $r; } } } ?>
   <header class="head"><h1>Müşteri Yorumları</h1><p>Müşterilerinizden gelen gerçek yorumları (WhatsApp, Instagram vb.) buraya ekleyin. En az bir yorum eklendiğinde sitede “Müşterilerimiz ne diyor?” bölümü görünür.</p></header>
@@ -582,9 +684,9 @@ $active = in_array($p, ['order'], true) ? 'orders' : (in_array($p, ['product'], 
         <label>Görsel yükle<input type="file" name="hero_image" accept="image/jpeg,image/png,image/webp"></label>
       </section>
       <section class="box">
-        <h2>📈 Reklam & analiz</h2>
-        <p class="hint">Meta Pixel girildiğinde PageView, ViewContent, AddToCart, InitiateCheckout, Contact ve Purchase olayları otomatik gönderilir.</p>
-        <div class="row3"><label>Meta (Facebook) Pixel ID<input name="meta_pixel_id" value="<?= e($s['meta_pixel_id']) ?>" placeholder="123456789012345"></label><label>Google Analytics 4 ID<input name="ga4_id" value="<?= e($s['ga4_id']) ?>" placeholder="G-XXXXXXXXXX"></label></div>
+        <h2>📈 Analiz & SEO</h2>
+        <p class="hint">Meta Pixel ve Dönüşümler API'si ayarları <a href="?p=meta">Meta Reklam</a> sayfasındadır.</p>
+        <label>Google Analytics 4 ID<input name="ga4_id" value="<?= e($s['ga4_id']) ?>" placeholder="G-XXXXXXXXXX"></label>
         <h3>SEO</h3>
         <label>Site adresi <small>(örn. https://aksarege.com — boşsa otomatik)</small><input name="site_url" value="<?= e($s['site_url']) ?>" placeholder="https://"></label>
         <label>Sayfa başlığı (title) <small><span data-count="seo_title"></span>/60</small><input name="seo_title" value="<?= e($s['seo_title']) ?>" maxlength="90"></label>

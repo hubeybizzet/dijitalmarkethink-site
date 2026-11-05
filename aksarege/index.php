@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
+meta_init_cookies(); // _fbp, _fbc, ziyaretçi kimliği ve reklam kaynağı çerezleri (çıktıdan önce)
 
 $s         = settings();
 $products  = products(true);
@@ -122,7 +123,10 @@ $clientData = [
         'min_order' => (float)setting('min_order', '0'),
         'whatsapp' => $waNumber,
         'brand' => $brand,
-        'pixel' => setting('meta_pixel_id') !== '',
+        'pixel' => meta_pixel_id() !== '',
+        'pixel_id' => meta_pixel_id(),
+        'capi' => capi_enabled(),
+        'vid' => meta_visitor_id(),
         'ga4' => setting('ga4_id') !== '',
     ],
     'payments' => $payments,
@@ -183,11 +187,14 @@ $img = fn(string $slug, int $i = 0) => $byslug[$slug]['images'][$i] ?? ($byslug[
 <script type="application/ld+json"><?= json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
 <?php endforeach; ?>
 
-<?php if ($px = setting('meta_pixel_id')): ?>
+<?php if ($px = meta_pixel_id()): ?>
 <script>
 !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', <?= json_encode($px) ?>); fbq('track', 'PageView');
+window.AE_PV = 'pv.' + Date.now() + '.' + Math.random().toString(36).slice(2, 10);
+fbq('init', <?= json_encode($px) ?>, <?= json_encode((object)array_filter(['external_id' => meta_visitor_id()])) ?>);
+fbq('track', 'PageView', {}, { eventID: window.AE_PV });
 </script>
+<noscript><img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=<?= e($px) ?>&amp;ev=PageView&amp;noscript=1"></noscript>
 <?php endif; ?>
 <?php if ($ga = setting('ga4_id')): ?>
 <script async src="https://www.googletagmanager.com/gtag/js?id=<?= e($ga) ?>"></script>

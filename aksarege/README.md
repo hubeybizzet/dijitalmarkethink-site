@@ -35,6 +35,21 @@ veya Node gerektirmez. Türkiye'deki standart cPanel/Plesk hostinglerin hepsinde
 - **Ayarlar:** iletişim bilgileri, ödeme yöntemleri, kapıda ödeme bedeli, havale indirimi, kargo ücreti,
   ücretsiz kargo limiti, minimum sipariş, hero görseli, Pixel/GA4, SEO başlık/açıklama, yasal metinler, şifre
 
+## Meta Pixel + Dönüşümler API'si (CAPI)
+Panel › **Meta Reklam** sayfasından Veri Seti (Pixel) ID ve Dönüşümler API'si erişim anahtarını girin.
+Kurulum adımları aynı sayfada yazılıdır.
+
+- Her olay hem tarayıcıdan (Pixel) hem sunucudan (CAPI) **aynı event_id** ile gönderilir; Meta tekilleştirir.
+- Olaylar: PageView, ViewContent, AddToCart, InitiateCheckout, AddPaymentInfo, Contact (arama/WhatsApp), Purchase.
+- Reklam engelleyici Pixel'i engellese bile olaylar sitenin kendi adresindeki `api/event.php` üzerinden Meta'ya ulaşır.
+- `_fbp`, `_fbc` (reklam tıklama kimliği) ve ziyaretçi kimliği çerezleri sunucu tarafında yazılır; Safari'nin
+  7 günlük çerez sınırına takılmaz.
+- Purchase olayında ad, soyad, telefon, e-posta ve il SHA-256 ile şifrelenerek gönderilir (Gelişmiş Eşleştirme).
+- Purchase olayı sipariş kaydedildiği anda sunucudan gönderilir; müşteri sayfayı hemen kapatsa bile kaybolmaz.
+- Meta'ya ulaşılamazsa olay kuyruğa alınır ve 6 gün boyunca otomatik yeniden denenir.
+- Her siparişte reklam kaynağı (UTM kampanya/reklam adı, Meta tıklaması) saklanır ve panelde gösterilir.
+- Sunucunuzda PHP **curl** eklentisi açık olmalıdır (hostinglerde varsayılan olarak açıktır).
+
 ## Sitedeki dönüşüm özellikleri
 - Telefon numarasına tıklayınca **Şimdi Ara** / **WhatsApp ile İletişime Geç** seçenekleri
 - Kapıda nakit, kapıda kredi kartı, havale/EFT ödeme seçenekleri ve sipariş notu
