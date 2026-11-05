@@ -217,13 +217,13 @@ function seed(PDO $pdo): void
         ],
     ];
     $st = $pdo->prepare('INSERT INTO products(slug,name,subtitle,short_desc,description,features,pairing,price,old_price,unit,badge,images,active,in_stock,sort,updated_at)
-                          VALUES(:slug,:name,:subtitle,:short_desc,:description,:features,:pairing,0,0,:unit,:badge,:images,1,1,:sort,:t)');
+                          VALUES(:slug,:name,:subtitle,:short_desc,:description,:features,:pairing,:price,0,:unit,:badge,:images,1,1,:sort,:t)');
     foreach ($products as $pr) {
         $st->execute([
             ':slug' => $pr['slug'], ':name' => $pr['name'], ':subtitle' => $pr['subtitle'],
             ':short_desc' => $pr['short_desc'], ':description' => $pr['description'],
             ':features' => json_encode($pr['features'], JSON_UNESCAPED_UNICODE),
-            ':pairing' => $pr['pairing'], ':unit' => $pr['slug'] === 'tadim-seti' ? '4 Kavanoz' : 'Pet Kavanoz',
+            ':pairing' => $pr['pairing'], ':price' => $pr['slug'] === 'tadim-seti' ? 0 : 229.90, ':unit' => $pr['slug'] === 'tadim-seti' ? '4 Kavanoz' : 'Pet Kavanoz',
             ':badge' => $pr['badge'], ':images' => json_encode($pr['images'], JSON_UNESCAPED_SLASHES),
             ':sort' => $pr['sort'], ':t' => date('c'),
         ]);
