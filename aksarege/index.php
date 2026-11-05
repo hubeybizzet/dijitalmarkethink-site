@@ -34,7 +34,7 @@ $faqs = [
         : ($freeMin > 0 ? money($freeMin) . " ve üzeri siparişlerde kargo ücretsizdir. Altındaki siparişlerde kargo ücreti " . money($shippingFee) . "'dir." : "Kargo ücreti " . money($shippingFee) . "'dir ve sipariş özetinde açıkça gösterilir.")],
     ['Hangi ödeme yöntemlerini kullanabilirim?', 'Kapıda nakit ödeme, kapıda kredi/banka kartı ile ödeme ve havale/EFT seçeneklerinden dilediğinizi seçebilirsiniz. Kapıda ödemede ürünü teslim alırken ödersiniz; peşin ödeme yapmanız gerekmez.'],
     ['Siparişim ne zaman elime ulaşır?', "Siparişiniz onaylandıktan sonra özenle paketlenip kargoya verilir. Bulunduğunuz ile göre çoğunlukla 1–3 iş günü içinde kapınızdadır. Kargo takip numaranız tarafınıza iletilir."],
-    ['Zeytinler kargoda zarar görür mü?', "Zeytinlerimiz sızdırmaz kapaklı kavanozlarda, darbelere karşı özenle paketlenerek gönderilir. Yine de hasarlı bir ürün ulaşırsa fotoğrafını WhatsApp'tan iletmeniz yeterli; ücretsiz olarak yenisini gönderiyoruz."],
+    ['Zeytinler kargoda zarar görür mü?', "Zeytinlerimiz sızdırmaz kapaklı kavanozlarda, darbelere karşı özenle paketlenerek gönderilir. Teslim alırken paketi kuryenin yanında kontrol etmenizi öneririz; dışarıdan bir hasar görürseniz kargo görevlisine hasar tespit tutanağı tutturun."],
     ['Zeytinleri nasıl saklamalıyım?', 'Açılmamış kavanozları serin ve güneş görmeyen bir yerde saklayın. Açtıktan sonra buzdolabında muhafaza edin, zeytinlerin salamurasının içinde kalmasına ve temiz, kuru bir kaşık kullanmaya özen gösterin.'],
     ['Zeytinyağı ve sarımsak da satıyor musunuz?', "Evet! Ege'nin doğal zeytinyağı ve sarımsağı için de sipariş alıyoruz. Güncel ürün ve fiyat bilgisi için bizi arayabilir ya da WhatsApp'tan yazabilirsiniz."],
     ['Toplu veya kurumsal sipariş verebilir miyim?', "Elbette. Restoran, kafe, otel ya da toplu hediye siparişleriniz için " . $phone . " numarasından bize ulaşın, size özel fiyat sunalım."],
@@ -264,7 +264,7 @@ fbq('init', <?= json_encode($px) ?>); fbq('track', 'PageView');
     <?php for ($k = 0; $k < 2; $k++): ?>
     <span><svg class="ic"><use href="#i-truck"/></svg><?= e(setting('announcement')) ?></span>
     <span><svg class="ic"><use href="#i-leaf"/></svg>Akhisar'dan doğal zeytin</span>
-    <span><svg class="ic"><use href="#i-shield"/></svg>Hasarlı ürüne ücretsiz değişim</span>
+    <span><svg class="ic"><use href="#i-box"/></svg>Sızdırmaz kavanoz, özenli paketleme</span>
     <?php endfor; ?>
   </div>
 </div>
@@ -343,7 +343,7 @@ fbq('init', <?= json_encode($px) ?>); fbq('track', 'PageView');
     <div class="trust__item reveal"><span class="trust__ic"><svg class="ic"><use href="#i-truck"/></svg></span><div><strong><?= e($shipText) ?></strong><small>Türkiye'nin her yerine</small></div></div>
     <div class="trust__item reveal" style="--d:.05s"><span class="trust__ic"><svg class="ic"><use href="#i-cash"/></svg></span><div><strong>Kapıda Ödeme</strong><small>Nakit veya kredi kartı</small></div></div>
     <div class="trust__item reveal" style="--d:.1s"><span class="trust__ic"><svg class="ic"><use href="#i-leaf"/></svg></span><div><strong>Doğal & Geleneksel</strong><small>Ege usulü hazırlanır</small></div></div>
-    <div class="trust__item reveal" style="--d:.15s"><span class="trust__ic"><svg class="ic"><use href="#i-shield"/></svg></span><div><strong>Güvenli Paketleme</strong><small>Hasara karşı garanti</small></div></div>
+    <div class="trust__item reveal" style="--d:.15s"><span class="trust__ic"><svg class="ic"><use href="#i-shield"/></svg></span><div><strong>Güvenli Paketleme</strong><small>Sızdırmaz, özenli ambalaj</small></div></div>
   </div>
 </section>
 
@@ -639,7 +639,7 @@ fbq('init', <?= json_encode($px) ?>); fbq('track', 'PageView');
         <ul class="summary__trust">
           <li><svg class="ic"><use href="#i-shield"/></svg> Bilgileriniz güvende, yalnızca teslimat için kullanılır.</li>
           <li><svg class="ic"><use href="#i-phone"/></svg> Siparişiniz alındıktan sonra onay için sizinle iletişime geçilir.</li>
-          <li><svg class="ic"><use href="#i-box"/></svg> Hasarlı ürün ulaşırsa ücretsiz değişim.</li>
+          <li><svg class="ic"><use href="#i-box"/></svg> Sızdırmaz kavanozlarda, özenle paketlenerek gönderilir.</li>
         </ul>
       </aside>
     </form>
