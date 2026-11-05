@@ -1,0 +1,5 @@
+data/*.sqlite*
+data/db-name.php
+uploads/*
+!uploads/.htaccess
+!uploads/index.php
