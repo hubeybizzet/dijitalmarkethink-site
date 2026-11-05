@@ -192,7 +192,7 @@ function seed(PDO $pdo): void
             'description' => "Hasat mevsiminde dalından toplanan yeşil zeytinler, aynı gün ayıklanır ve tek tek kırılarak doğal salamuraya yatırılır. Kırılan zeytin, salamurayı içine çeker; acılığını yavaş yavaş bırakır ve ortaya o meşhur çıtır, ferah, hafif ekşimsi Ege lezzeti çıkar.\n\nBir kavanoz açtığınızda mutfağınıza Ege'nin taze zeytinlik kokusu yayılır. Üzerine biraz zeytinyağı, kekik ve limon gezdirin; kahvaltı sofranız bir anda köy sofrasına dönüşsün.",
             'features' => ['Taze hasattan', 'Tek tek kırılır', 'Doğal salamura', 'Çıtır doku'],
             'pairing' => 'Kahvaltı • Köy peyniri • Domates & salatalık • Zeytinyağı & kekik',
-            'images' => [$p.'kirma-yesil-zeytin-1.webp', $p.'kirma-yesil-zeytin-2.webp'],
+            'images' => [$p.'kirma-yesil-zeytin-zeytinlik.webp'],
             'sort' => 1,
         ],
         [
@@ -204,7 +204,7 @@ function seed(PDO $pdo): void
             'description' => "Seçilmiş iri yeşil zeytinler, ızgarada tek tek nar gibi kızartılır. Üzerinde kalan ızgara izleri, zeytine hafif isli, derin ve iştah açan bir aroma kazandırır.\n\nMeze tabağına koyduğunuz anda göz önce izlere, sonra tadına takılır. Misafirleriniz tek bir taneyle yetinemeyecek; tabak boşaldıkça \"Bunu nereden aldın?\" sorusu gelecek.",
             'features' => ['Tek tek ızgaralanır', 'İsli & dumanlı aroma', 'İri taneler', 'Meze dostu'],
             'pairing' => 'Meze tabağı • Peynir tabağı • Salata • Pizza & makarna',
-            'images' => [$p.'izgara-yesil-zeytin.webp'],
+            'images' => [$p.'izgara-yesil-zeytin-zeytinlik.webp'],
             'sort' => 2,
         ],
         [
@@ -216,7 +216,7 @@ function seed(PDO $pdo): void
             'description' => "Çizik zeytin, Ege'de nesilden nesile aktarılan geleneksel bir yöntemle hazırlanır: her tanenin üzerine ince çizikler atılır, böylece zeytin doğal salamurasını yavaş yavaş, derinlemesine çeker.\n\nSonuç; sıkı, diri ve hafif buruk bir tat. Tıpkı büyüklerimizin evde kavanoz kavanoz kurduğu zeytinler gibi. Bir kez tadan, market zeytinine geri dönmek istemiyor.",
             'features' => ['Geleneksel yöntem', 'Sıkı & diri doku', 'Doğal salamura', 'Ev yapımı tadı'],
             'pairing' => 'Kahvaltı • Simit & çay • Gözleme • Ara öğün',
-            'images' => [$p.'cizik-yesil-zeytin.webp'],
+            'images' => [$p.'cizik-yesil-zeytin-zeytinlik.webp'],
             'sort' => 3,
         ],
         [
@@ -228,7 +228,7 @@ function seed(PDO $pdo): void
             'description' => "İri ve dolgun yeşil zeytinlerin çekirdekleri özenle çıkarılır, yerine kırmızı biber yerleştirilir. Yeşilin ve kırmızının buluştuğu her tane, sofranıza hem renk hem lezzet katar.\n\nÇekirdeksiz olduğu için çocuklar bile severek yer. Kahvaltıda, salatada, mezede ya da kokteyl sunumlarında; tabağa koyduğunuz an göz zevki başlar.",
             'features' => ['Çekirdeksiz', 'Kırmızı biber dolgulu', 'İri taneler', 'Sunumda şık'],
             'pairing' => 'Salatalar • Meze & kanepe • Kahvaltı • Kokteyl sunumu',
-            'images' => [$p.'biber-dolgulu-yesil-zeytin.webp'],
+            'images' => [$p.'biber-dolgulu-yesil-zeytin-zeytinlik.webp'],
             'sort' => 4,
         ],
         [
@@ -240,7 +240,7 @@ function seed(PDO $pdo): void
             'description' => "Kırma, Izgara, Çizik ve Biber Dolgulu yeşil zeytinlerimizin hepsini birden denemek isteyenler için hazırladığımız set. Sofranızda dört farklı tabak, dört farklı lezzet.\n\nKendinize de alabilirsiniz, sevdiklerinize Ege'den doğal bir hediye olarak da gönderebilirsiniz.",
             'features' => ['4 farklı lezzet', 'Hediyelik', 'Avantajlı fiyat', 'Ücretsiz kargo'],
             'pairing' => 'Kalabalık kahvaltılar • Misafir sofraları • Hediye',
-            'images' => [$p.'tadim-seti.webp'],
+            'images' => [$p.'tadim-seti-zeytinlik.webp'],
             'sort' => 5,
         ],
     ];
